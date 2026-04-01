@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Chat Router MVP</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b1020;
+        --panel: rgba(255, 255, 255, 0.06);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.6);
+        --accent: #7c5cff;
+        --user: #2b8a3e;
+        --bot: #2f6fdd;
+        --border: rgba(255, 255, 255, 0.12);
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f7f8fb;
+          --panel: rgba(0, 0, 0, 0.04);
+          --text: rgba(0, 0, 0, 0.9);
+          --muted: rgba(0, 0, 0, 0.6);
+          --border: rgba(0, 0, 0, 0.12);
+        }
+      }
+      * {
+        box-sizing: border-box;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Ubuntu, Cantarell, Noto Sans, Helvetica, Arial;
+      }
+      body {
+        margin: 0;
+        background: radial-gradient(1200px 600px at 20% 0%, rgba(124, 92, 255, 0.22), transparent 60%),
+          radial-gradient(900px 500px at 90% 10%, rgba(47, 111, 221, 0.18), transparent 60%),
+          var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .app {
+        width: min(920px, 100%);
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 12px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--panel), transparent 25%);
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+      }
+      header {
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+      }
+      header .title {
+        display: grid;
+        gap: 2px;
+      }
+      header .title strong {
+        font-size: 14px;
+        letter-spacing: 0.3px;
+      }
+      header .title span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      header .meta {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      header .pill {
+        font-size: 12px;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        padding: 6px 10px;
+        border-radius: 999px;
+      }
+      .messages {
+        padding: 14px 16px;
+        overflow: auto;
+        display: grid;
+        gap: 10px;
+        align-content: start;
+        min-height: 320px;
+        max-height: 62vh;
+      }
+      .msg {
+        display: grid;
+        gap: 6px;
+      }
+      .msg .who {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .bubble {
+        width: fit-content;
+        max-width: min(720px, 96%);
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.12);
+        white-space: pre-wrap;
+        line-height: 1.35;
+      }
+      .user .bubble {
+        margin-left: auto;
+        background: color-mix(in srgb, var(--user), transparent 84%);
+        border-color: color-mix(in srgb, var(--user), transparent 65%);
+      }
+      .bot .bubble {
+        background: color-mix(in srgb, var(--bot), transparent 86%);
+        border-color: color-mix(in srgb, var(--bot), transparent 70%);
+      }
+      .typing {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      form {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        padding: 14px 16px;
+        border-top: 1px solid var(--border);
+        background: color-mix(in srgb, var(--panel), transparent 10%);
+      }
+      textarea {
+        resize: none;
+        height: 46px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--text);
+        outline: none;
+      }
+      button {
+        border: none;
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent), white 18%));
+        color: white;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      .hint {
+        padding: 0 16px 14px 16px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      code.kbd {
+        border: 1px solid var(--border);
+        padding: 2px 6px;
+        border-radius: 8px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <div class="title">
+          <strong>Chat Router MVP</strong>
+          <span>Natural language → intent → tools → booking API</span>
+        </div>
+        <div class="meta">
+          <span class="pill" id="convPill">conversation: …</span>
+          <span class="pill" id="statusPill">status: connecting</span>
+        </div>
+      </header>
+      <div class="messages" id="messages"></div>
+      <div class="hint">
+        Try: “Do you have padel tomorrow at 7pm for 90 minutes?” then “Book it
+        under Ahmed, phone 05xxxx”.
+        Press <code class="kbd">Enter</code> to send,
+        <code class="kbd">Shift+Enter</code> for newline.
+      </div>
+      <form id="form">
+        <textarea id="input" placeholder="Type your message…"></textarea>
+        <button id="sendBtn" type="submit">Send</button>
+      </form>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const messagesEl = $("messages");
+      const statusPill = $("statusPill");
+      const convPill = $("convPill");
+      const inputEl = $("input");
+      const sendBtn = $("sendBtn");
+
+      function addMessage(role, text) {
+        const wrap = document.createElement("div");
+        wrap.className = `msg ${role}`;
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent = role === "user" ? "You" : "Assistant";
+        const bubble = document.createElement("div");
+        bubble.className = "bubble";
+        bubble.textContent = text;
+        wrap.appendChild(who);
+        wrap.appendChild(bubble);
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      function setStatus(text) {
+        statusPill.textContent = `status: ${text}`;
+      }
+
+      function setTyping(isTyping) {
+        let typing = document.getElementById("typing");
+        if (isTyping) {
+          if (!typing) {
+            typing = document.createElement("div");
+            typing.id = "typing";
+            typing.className = "typing";
+            typing.textContent = "Assistant is thinking…";
+            messagesEl.appendChild(typing);
+          }
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        } else if (typing) {
+          typing.remove();
+        }
+      }
+
+      async function api(path, opts) {
+        const headers = { ...(opts && opts.headers ? opts.headers : {}) };
+        const hasBody =
+          opts && Object.prototype.hasOwnProperty.call(opts, "body") && opts.body != null;
+        if (hasBody && !headers["content-type"]) {
+          headers["content-type"] = "application/json";
+        }
+        const res = await fetch(path, {
+          headers,
+          ...opts,
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`${res.status}: ${text}`);
+        }
+        return res.json();
+      }
+
+      let conversationId = null;
+
+      async function ensureConversation() {
+        setStatus("creating conversation");
+        const data = await api("/v1/conversations", {
+          method: "POST",
+          body: "{}",
+        });
+        conversationId = data.conversationId;
+        convPill.textContent = `conversation: ${conversationId.slice(0, 8)}`;
+        setStatus("ready");
+      }
+
+      async function sendMessage(text) {
+        if (!conversationId) {
+          await ensureConversation();
+        }
+        addMessage("user", text);
+        setTyping(true);
+        setStatus("sending");
+        try {
+          const data = await api(`/v1/conversations/${conversationId}/messages`, {
+            method: "POST",
+            body: JSON.stringify({ text }),
+          });
+          addMessage("bot", data.replyText);
+          setStatus("ready");
+        } catch (e) {
+          addMessage("bot", `Error: ${e.message}`);
+          setStatus("error");
+        } finally {
+          setTyping(false);
+        }
+      }
+
+      $("form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = "";
+        sendBtn.disabled = true;
+        try {
+          await sendMessage(text);
+        } finally {
+          sendBtn.disabled = false;
+          inputEl.focus();
+        }
+      });
+
+      inputEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          $("form").requestSubmit();
+        }
+      });
+
+      (async () => {
+        try {
+          await ensureConversation();
+          addMessage(
+            "bot",
+            "Hi! Tell me what you want to book (sport, day/time, duration), and I’ll check availability and reserve it."
+          );
+        } catch (e) {
+          setStatus("failed");
+          addMessage("bot", `Failed to initialize: ${e.message}`);
+        }
+      })();
+    </script>
+  </body>
+</html>
